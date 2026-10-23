@@ -155,33 +155,7 @@ async def hustle(ctx):
   await ctx.send(embed=embed)
 
 
-# --- 3. !collect (co 24h za rolę) ---
-@bot.command()
-async def collect(ctx):
-  wymagana_rola = 'Pracownik'
-  rola = discord.utils.get(ctx.guild.roles, name=wymagana_rola)
 
-  if not rola or rola not in ctx.author.roles:
-    await ctx.send(
-        f'❌ {ctx.author.mention}, nie posiadasz wymaganej roli (`{wymagana_rola}`)'
-        ' do odebrania dziennej wypłaty!'
-    )
-    return
-
-  bonus = 500
-  user = get_user_data(ctx.author.id)
-  user['wallet'] += bonus
-  save_data(load_data())
-
-  embed = discord.Embed(
-      title='💰 Dzienna wypłata',
-      description=(
-          f'{ctx.author.mention}, odebrałeś swoje świadczenie za rolę w'
-          f' wysokości **{bonus} PLN**!'
-      ),
-      color=discord.Color.gold(),
-  )
-  await ctx.send(embed=embed)
 
 
 # --- 4. !bal / !balance ---
