@@ -10,11 +10,10 @@ intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-
 DATA_FILE = "economy.json"
 
 
-# --- OBSŁUGA BAZY DANYCH (JSON) ---
+# --- SYSTEM BAZY DANYCH (JSON) ---
 def load_data():
   if not os.path.exists(DATA_FILE):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -36,7 +35,7 @@ def get_user_data(data, user_id):
   if user_id_str not in data:
     data[user_id_str] = {"wallet": 0, "bank": 0}
 
-  # Synchornizacja i pilnowanie prawidłowych kluczy w bazie
+  # Synchornizacja starych/nowych kluczy w pliku JSON
   if "wallet" not in data[user_id_str]:
     data[user_id_str]["wallet"] = data[user_id_str].get("cash", 0)
   if "bank" not in data[user_id_str]:
@@ -45,7 +44,7 @@ def get_user_data(data, user_id):
   return data[user_id_str]
 
 
-# --- KONFIGURACJA EKONOMII HAZE RP ---
+# --- USTAWIENIA HAZE RP ---
 
 ROLE_PAYOUTS = {
     1562161272831873116: 762,  # Zarzad KWP
@@ -104,10 +103,10 @@ ALLOWED_CASH_ROLES = {
 
 @bot.event
 async def on_ready():
-  print(f"✅ Bot {bot.user.name} wystartował i jest gotowy do działania!")
+  print(f"✅ Bot {bot.user.name} jest włączony i gotowy!")
 
 
-# --- KOMENDA: !bal / !balance ---
+# --- KOMENDA: !bal ---
 @bot.command(aliases=["balance", "konto", "stan"])
 async def bal(ctx, member: discord.Member = None):
   target = member or ctx.author
@@ -547,9 +546,9 @@ async def with_cmd(ctx, amount: str = None):
   await ctx.send(embed=embed)
 
 
-# --- URUCHOMIENIE BOTA ---
+# --- START BOTA ---
 TOKEN = os.getenv("DISCORD_TOKEN")
 if TOKEN:
   bot.run(TOKEN)
 else:
-  print("❌ Brak tokena DISCORD_TOKEN w zmiennych środowiskowych!")
+  print("❌ Brak tokena DISCORD_TOKEN w środowisku!")
