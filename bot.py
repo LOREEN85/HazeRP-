@@ -7,7 +7,7 @@ import discord
 from discord.ext import commands
 from flask import Flask
 
-# --- MINI SERWER HTTP DLA RENDERA (WEB SERVICE) ---
+# --- SERWER HTTP DLA RENDERA (WEB SERVICE) ---
 app = Flask('')
 
 
@@ -57,7 +57,7 @@ def get_user_data(data, user_id):
   if user_id_str not in data:
     data[user_id_str] = {'wallet': 0, 'bank': 0}
 
-  # Synchronizacja kluczy
+  # Synchornizacja starych i nowych kluczy
   if 'wallet' not in data[user_id_str]:
     data[user_id_str]['wallet'] = data[user_id_str].get('cash', 0)
   if 'bank' not in data[user_id_str]:
@@ -66,7 +66,7 @@ def get_user_data(data, user_id):
   return data[user_id_str]
 
 
-# --- KONFIGURACJA ROLES & SKLEPU HAZE RP ---
+# --- KONFIGURACJA EKONOMII HAZE RP ---
 
 ROLE_PAYOUTS = {
     1562161272831873116: 762,  # Zarzad KWP
@@ -85,31 +85,35 @@ ROLE_PAYOUTS = {
 SHOP_ITEMS = {
     'prawo jazdy b': {
         'name': 'Prawo Jazdy B',
-        'price': 500,
+        'price': 2500,
         'role_id': 1563214789512138864,
     },
     'prawo jazdy c': {
         'name': 'Prawo Jazdy C',
-        'price': 1000,
+        'price': 3000,
         'role_id': 1563215060334280837,
     },
     'karta wedkarska': {
         'name': 'Karta Wędkarska',
-        'price': 200,
+        'price': 700,
         'role_id': 1563215061227667487,
     },
     'pozwolenie na bron': {
         'name': 'Pozwolenie na Broń',
-        'price': 2500,
+        'price': 2800,
         'role_id': 1563215061697175622,
     },
-    'colt': {'name': 'Colt', 'price': 1500, 'role_id': 1563215062544421034},
-    'beretta': {'name': 'Beretta', 'price': 1800, 'role_id': 1563215063056261140},
-    'lom': {'name': 'Łom', 'price': 300, 'role_id': 1563215064482455683},
-    'noz': {'name': 'Nóż', 'price': 150, 'role_id': 1563215063635075082},
+    'colt': {'name': 'Colt', 'price': 25000, 'role_id': 1563215062544421034},
+    'beretta': {
+        'name': 'Beretta',
+        'price': 24000,
+        'role_id': 1563215063056261140,
+    },
+    'lom': {'name': 'Łom', 'price': 250, 'role_id': 1563215064482455683},
+    'noz': {'name': 'Nóż', 'price': 200, 'role_id': 1563215063635075082},
     'baseball': {
         'name': 'Kij Baseballowy',
-        'price': 250,
+        'price': 400,
         'role_id': 1563215064884969573,
     },
 }
@@ -124,6 +128,7 @@ ALLOWED_CASH_ROLES = {
 collect_cooldowns = {}
 work_cooldowns = {}
 hustle_cooldowns = {}
+crime_cooldowns = {}
 
 
 @bot.event
@@ -131,7 +136,7 @@ async def on_ready():
   print(f'✅ Bot {bot.user.name} wystartował pomyślnie!')
 
 
-# --- KOMENDA: !bal ---
+# --- KOMENDA: !bal / !balance / !konto / !stan ---
 @bot.command(aliases=['balance', 'konto', 'stan'])
 async def bal(ctx, member: discord.Member = None):
   target = member or ctx.author
@@ -167,7 +172,7 @@ async def bal(ctx, member: discord.Member = None):
   await ctx.send(embed=embed)
 
 
-# --- KOMENDA: !dep ---
+# --- KOMENDA: !dep / !deposit ---
 @bot.command(aliases=['deposit'])
 async def dep(ctx, amount: str = None):
   if amount is None:
@@ -210,7 +215,7 @@ async def dep(ctx, amount: str = None):
         title='💸 Brak funduszy',
         description=(
             f'Nie masz tylu pieniędzy w portfelu!\nPosiadasz tylko'
-            f' **{user["wallet"]} PLN**.'
+            f' **{user["wallet"]:,} PLN**.'
         ),
         color=discord.Color.red(),
     )
@@ -233,7 +238,7 @@ async def dep(ctx, amount: str = None):
   await ctx.send(embed=embed)
 
 
-# --- KOMENDA: !with ---
+# --- KOMENDA: !with / !withdraw ---
 @bot.command(aliases=['withdraw'])
 async def with_cmd(ctx, amount: str = None):
   if amount is None:
@@ -276,7 +281,7 @@ async def with_cmd(ctx, amount: str = None):
         title='💸 Brak funduszy w banku',
         description=(
             f'Nie masz tylu pieniędzy w banku!\nPosiadasz tam tylko'
-            f' **{user["bank"]} PLN**.'
+            f' **{user["bank"]:,} PLN**.'
         ),
         color=discord.Color.red(),
     )
@@ -299,7 +304,7 @@ async def with_cmd(ctx, amount: str = None):
   await ctx.send(embed=embed)
 
 
-# --- KOMENDA: !collect ---
+# --- KOMENDA: !collect (cooldown 24h) ---
 @bot.command()
 async def collect(ctx):
   user_id = ctx.author.id
@@ -330,7 +335,7 @@ async def collect(ctx):
     if role.id in ROLE_PAYOUTS:
       amount = ROLE_PAYOUTS[role.id]
       total_payout += amount
-      matched_roles.append(f'• **{role.name}**: +{amount} PLN')
+      matched_roles.append(f'• **{role.name}**: +{amount:,} PLN')
 
   if total_payout == 0:
     embed = discord.Embed(
@@ -354,7 +359,7 @@ async def collect(ctx):
   embed = discord.Embed(
       title='💰 Dzienna Wypłata',
       description=(
-          f'Pomyślnie odebrano dzienną wypłatę w wysokości **{total_payout}'
+          f'Pomyślnie odebrano dzienną wypłatę w wysokości **{total_payout:,}'
           ' PLN**!\n\n📜 **Otrzymane wynagrodzenie:**\n'
           + roles_str
       ),
@@ -364,22 +369,23 @@ async def collect(ctx):
   await ctx.send(embed=embed)
 
 
-# --- KOMENDA: !work ---
+# --- KOMENDA: !work (cooldown 5h) ---
 @bot.command()
 async def work(ctx):
   user_id = ctx.author.id
   now = datetime.now()
 
   if user_id in work_cooldowns:
-    next_work_time = work_cooldowns[user_id] + timedelta(hours=1)
+    next_work_time = work_cooldowns[user_id] + timedelta(hours=5)
     if now < next_work_time:
       remaining = next_work_time - now
-      minutes, seconds = divmod(int(remaining.total_seconds()), 60)
+      hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+      minutes, _ = divmod(remainder, 60)
       embed = discord.Embed(
           title='⏳ Czas na odpoczynek',
           description=(
-              f'Możesz popracować ponownie za **{minutes} min. i {seconds}'
-              ' sek.**'
+              f'Jesteś zmęczony pracą! Możesz popracować ponownie za **{hours}'
+              f' godz. i {minutes} min.**'
           ),
           color=discord.Color.red(),
       )
@@ -398,30 +404,31 @@ async def work(ctx):
   embed = discord.Embed(
       title='🛠️ Praca',
       description=(
-          f'{ctx.author.mention}, przepracowałeś zmianę i zarobiłeś'
-          f' **{earnings} PLN**!'
+          f'{ctx.author.mention}, uczciwie przepracowałeś swoją zmianę i'
+          f' zarobiłeś **{earnings:,} PLN**!'
       ),
       color=discord.Color.green(),
   )
   await ctx.send(embed=embed)
 
 
-# --- KOMENDA: !hustle ---
+# --- KOMENDA: !hustle (cooldown 8h) ---
 @bot.command()
 async def hustle(ctx):
   user_id = ctx.author.id
   now = datetime.now()
 
   if user_id in hustle_cooldowns:
-    next_hustle_time = hustle_cooldowns[user_id] + timedelta(minutes=30)
+    next_hustle_time = hustle_cooldowns[user_id] + timedelta(hours=8)
     if now < next_hustle_time:
       remaining = next_hustle_time - now
-      minutes, seconds = divmod(int(remaining.total_seconds()), 60)
+      hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+      minutes, _ = divmod(remainder, 60)
       embed = discord.Embed(
           title='⏳ Szybki opór',
           description=(
-              f'Kolejna fucha będzie dostępna za **{minutes} min. i'
-              f' {seconds} sek.**'
+              f'Kolejna fucha będzie dostępna za **{hours} godz. i'
+              f' {minutes} min.**'
           ),
           color=discord.Color.red(),
       )
@@ -440,10 +447,93 @@ async def hustle(ctx):
   embed = discord.Embed(
       title='💼 Szybka Fucha',
       description=(
-          f'{ctx.author.mention}, ogarnąłeś szybki interes i wpada ci'
-          f' **{earnings} PLN**!'
+          f'{ctx.author.mention}, ogarnąłeś szybki interes i na Twoim koncie'
+          f' ląduje **{earnings:,} PLN**!'
       ),
       color=discord.Color.dark_theme(),
+  )
+  await ctx.send(embed=embed)
+
+
+# --- KOMENDA: !crime (cooldown 12h) ---
+@bot.command()
+async def crime(ctx):
+  user_id = ctx.author.id
+  now = datetime.now()
+
+  if user_id in crime_cooldowns:
+    next_crime_time = crime_cooldowns[user_id] + timedelta(hours=12)
+    if now < next_crime_time:
+      remaining = next_crime_time - now
+      hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+      minutes, _ = divmod(remainder, 60)
+      embed = discord.Embed(
+          title='🚨 Niebezpiecznie na ulicy',
+          description=(
+              'Policja patroluje teren! Kolejną akcję możesz wykonać za'
+              f' **{hours} godz. i {minutes} min.**'
+          ),
+          color=discord.Color.red(),
+      )
+      await ctx.send(embed=embed)
+      return
+
+  data = load_data()
+  user = get_user_data(data, user_id)
+
+  # 70% szans na sukces, 30% na porażkę
+  success = random.choices([True, False], weights=[70, 30])[0]
+
+  if success:
+    earnings = random.randint(200, 1000)
+    user['wallet'] += earnings
+    embed = discord.Embed(
+        title='🥷 Udana Akcja Przestępcza',
+        description=(
+            f'{ctx.author.mention}, zgubiłeś pościg i zgarnąłeś **{earnings:,}'
+            ' PLN**!'
+        ),
+        color=discord.Color.dark_red(),
+    )
+  else:
+    fine = random.randint(100, 300)
+    user['wallet'] = max(0, user['wallet'] - fine)
+    embed = discord.Embed(
+        title='🚔 Wpadka z Policją!',
+        description=(
+            f'{ctx.author.mention}, zostałeś złapany! Zapłaciłeś mandat w'
+            f' wysokości **{fine:,} PLN**.'
+        ),
+        color=discord.Color.red(),
+    )
+
+  save_data(data)
+  crime_cooldowns[user_id] = now
+  await ctx.send(embed=embed)
+
+
+# --- KOMENDA: !sklep ---
+@bot.command(aliases=['shop', 'sklepik'])
+async def sklep(ctx):
+  embed = discord.Embed(
+      title='🛍️ Oferta Sklepu HazeRP',
+      description=(
+          'Aby kupić wybrany przedmiot, użyj komendy: `!kup <nazwa>`\n'
+          'Przykład: `!kup Colt` lub `!kup Prawo Jazdy B`\n'
+          '─────────────────────────────'
+      ),
+      color=discord.Color.gold(),
+  )
+
+  for key, item in SHOP_ITEMS.items():
+    embed.add_field(
+        name=f"🔹 {item['name']}",
+        value=f"Cena: **{item['price']:,} PLN**",
+        inline=True,
+    )
+
+  embed.set_footer(
+      text='Pieniądze na zakup są pobierane bezpośrednio z Twojego portfela.'
   )
   await ctx.send(embed=embed)
 
@@ -455,7 +545,8 @@ async def kup(ctx, *, item_name: str = None):
     embed = discord.Embed(
         title='❌ Błąd składni',
         description=(
-            'Podaj nazwę przedmiotu, który chcesz kupić!\nPrzykład: `!kup Colt`'
+            'Podaj nazwę przedmiotu, który chcesz kupić!\n'
+            'Zobacz pełną listę pod komendą `!sklep`.'
         ),
         color=discord.Color.red(),
     )
@@ -488,7 +579,7 @@ async def kup(ctx, *, item_name: str = None):
         title='💸 Brak funduszy',
         description=(
             f'Masz za mało gotówki w portfelu!\nBrakująca kwota:'
-            f' **{price - user["wallet"]} PLN**.'
+            f' **{price - user["wallet"]:,} PLN**.'
         ),
         color=discord.Color.red(),
     )
@@ -514,7 +605,7 @@ async def kup(ctx, *, item_name: str = None):
       embed = discord.Embed(
           title='🛍️ Zakup udany!',
           description=(
-              f"Zakupiono **{item['name']}** za **{price} PLN**!\nOtrzymano"
+              f"Zakupiono **{item['name']}** za **{price:,} PLN**!\nOtrzymano"
               f' rolę: {role.mention}'
           ),
           color=discord.Color.green(),
@@ -582,7 +673,7 @@ async def pay(ctx, amount: int = None, member: discord.Member = None):
         title='💸 Brak funduszy',
         description=(
             f'Nie masz wystarczająco pieniędzy w portfelu!\nPosiadasz tylko'
-            f' **{sender["wallet"]} PLN**.'
+            f' **{sender["wallet"]:,} PLN**.'
         ),
         color=discord.Color.red(),
     )
@@ -598,7 +689,7 @@ async def pay(ctx, amount: int = None, member: discord.Member = None):
   embed = discord.Embed(
       title='💸 Przelew prywatny',
       description=(
-          f'{ctx.author.mention} przekazał(a) **{amount} PLN** dla'
+          f'{ctx.author.mention} przekazał(a) **{amount:,} PLN** dla'
           f' {member.mention}!'
       ),
       color=discord.Color.blue(),
