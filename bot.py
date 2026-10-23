@@ -154,30 +154,54 @@ async def hustle(ctx):
   )
   await ctx.send(embed=embed)
 
+# --- POMOCNICZA FUNKCJA SPRAWDZAJĄCA BAZĘ DANYCH ---
+def ensure_user_keys(user_data):
+  """Zapewnia synchornizację portfela i banku niezależnie od używanych kluczy w bazie."""
+  if "wallet" not in user_data:
+    user_data["wallet"] = user_data.get("cash", 0)
+  if "bank" not in user_data:
+    user_data["bank"] = user_data.get("bank_balance", 0)
+
+  # Synchronizacja w drugą stronę
+  user_data["cash"] = user_data["wallet"]
+  user_data["bank_balance"] = user_data["bank"]
+  return user_data
 
 
-
-
-# --- 4. !bal / !balance ---
-@bot.command(aliases=['balance'])
+# --- KOMENDA: !bal / !balance ---
+@bot.command(aliases=["balance", "konto", "stan"])
 async def bal(ctx, member: discord.Member = None):
   target = member or ctx.author
-  user = get_user_data(target.id)
-  wallet = user['wallet']
-  bank = user['bank']
-  total = wallet + bank
+  data = load_data()
+  user = ensure_user_keys(get_user_data(target.id))
+
+  wallet_val = user["wallet"]
+  bank_val = user["bank"]
+  total_val = wallet_val + bank_val
 
   embed = discord.Embed(
-      title=f'💳 Portfel: {target.display_name}', color=discord.Color.blue()
+      title=f"💳 Portfel: {target.display_name}", color=discord.Color.blue()
   )
-  embed.set_thumbnail(url=target.display_avatar.url)
-  embed.add_field(name='💵 Portfel (gotówka)', value=f'**{wallet} PLN**', inline=True)
-  embed.add_field(name='🏦 Bank (konto)', value=f'**{bank} PLN**', inline=True)
-  embed.add_field(name='📊 Łącznie majątek', value=f'**{total} PLN**', inline=False)
+  if target.avatar:
+    embed.set_thumbnail(url=target.avatar.url)
+
+  embed.add_field(
+      name="💵 Portfel (gotówka)", value=f"**{wallet_val} PLN**", inline=True
+  )
+  embed.add_field(
+      name="🏦 Bank (konto)", value=f"**{bank_val} PLN**", inline=True
+  )
+  embed.add_field(
+      name="\n📊 Łącznie majątek",
+      value=f"**{total_val} PLN**",
+      inline=False,
+  )
+
   await ctx.send(embed=embed)
 
-# --- KOMENDA: !dep <kwota> / !dep all (Wpłata z portfela do banku) ---
-@bot.command(aliases=['deposit'])
+
+# --- KOMENDA: !dep <kwota> / !dep all ---
+@bot.command(aliases=["deposit"])
 async def dep(ctx, amount: str = None):
   if amount is None:
     await ctx.send(
@@ -187,10 +211,10 @@ async def dep(ctx, amount: str = None):
     return
 
   data = load_data()
-  user = get_user_data(ctx.author.id)
+  user = ensure_user_keys(get_user_data(ctx.author.id))
 
-  if amount.lower() == 'all':
-    dep_amount = user['wallet']
+  if amount.lower() == "all":
+    dep_amount = user["wallet"]
   else:
     try:
       dep_amount = int(amount)
@@ -206,16 +230,18 @@ async def dep(ctx, amount: str = None):
     )
     return
 
-  if user['wallet'] < dep_amount:
+  if user["wallet"] < dep_amount:
     await ctx.send(
         f"❌ {ctx.author.mention}, nie masz tylu pieniędzy w portfelu!"
         f" Posiadasz tylko **{user['wallet']} PLN**."
     )
     return
 
-  # Aktualizacja stanu konta i zapis
-  user['wallet'] -= dep_amount
-  user['bank'] += dep_amount
+  # Aktualizacja wartości w obu zestawach kluczy
+  user["wallet"] -= dep_amount
+  user["bank"] += dep_amount
+  ensure_user_keys(user)
+
   save_data(data)
 
   embed = discord.Embed(
@@ -230,8 +256,8 @@ async def dep(ctx, amount: str = None):
   await ctx.send(embed=embed)
 
 
-# --- KOMENDA: !with <kwota> / !with all (Wypłata z banku do portfela) ---
-@bot.command(aliases=['withdraw'])
+# --- KOMENDA: !with <kwota> / !with all ---
+@bot.command(aliases=["withdraw"])
 async def with_cmd(ctx, amount: str = None):
   if amount is None:
     await ctx.send(
@@ -241,10 +267,10 @@ async def with_cmd(ctx, amount: str = None):
     return
 
   data = load_data()
-  user = get_user_data(ctx.author.id)
+  user = ensure_user_keys(get_user_data(ctx.author.id))
 
-  if amount.lower() == 'all':
-    with_amount = user['bank']
+  if amount.lower() == "all":
+    with_amount = user["bank"]
   else:
     try:
       with_amount = int(amount)
@@ -260,16 +286,18 @@ async def with_cmd(ctx, amount: str = None):
     )
     return
 
-  if user['bank'] < with_amount:
+  if user["bank"] < with_amount:
     await ctx.send(
         f"❌ {ctx.author.mention}, nie masz tylu pieniędzy w banku! Posiadasz"
         f" tam tylko **{user['bank']} PLN**."
     )
     return
 
-  # Aktualizacja stanu konta i zapis
-  user['bank'] -= with_amount
-  user['wallet'] += with_amount
+  # Aktualizacja wartości w obu zestawach kluczy
+  user["bank"] -= with_amount
+  user["wallet"] += with_amount
+  ensure_user_keys(user)
+
   save_data(data)
 
   embed = discord.Embed(
@@ -282,6 +310,12 @@ async def with_cmd(ctx, amount: str = None):
       color=discord.Color.blue(),
   )
   await ctx.send(embed=embed)
+
+
+
+
+
+
 # --- 7. !crime (50% szans na zysk/stratę 100-200 PLN, co 24h) ---
 @bot.command()
 async def crime(ctx):
