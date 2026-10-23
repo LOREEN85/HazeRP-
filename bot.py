@@ -57,7 +57,6 @@ def get_user_data(data, user_id):
   if user_id_str not in data:
     data[user_id_str] = {'wallet': 0, 'bank': 0}
 
-  # Synchornizacja starych i nowych kluczy
   if 'wallet' not in data[user_id_str]:
     data[user_id_str]['wallet'] = data[user_id_str].get('cash', 0)
   if 'bank' not in data[user_id_str]:
@@ -98,7 +97,17 @@ SHOP_ITEMS = {
         'price': 700,
         'role_id': 1563215061227667487,
     },
+    'karta wędkarska': {
+        'name': 'Karta Wędkarska',
+        'price': 700,
+        'role_id': 1563215061227667487,
+    },
     'pozwolenie na bron': {
+        'name': 'Pozwolenie na Broń',
+        'price': 2800,
+        'role_id': 1563215061697175622,
+    },
+    'pozwolenie na broń': {
         'name': 'Pozwolenie na Broń',
         'price': 2800,
         'role_id': 1563215061697175622,
@@ -110,8 +119,15 @@ SHOP_ITEMS = {
         'role_id': 1563215063056261140,
     },
     'lom': {'name': 'Łom', 'price': 250, 'role_id': 1563215064482455683},
+    'łom': {'name': 'Łom', 'price': 250, 'role_id': 1563215064482455683},
     'noz': {'name': 'Nóż', 'price': 200, 'role_id': 1563215063635075082},
+    'nóż': {'name': 'Nóż', 'price': 200, 'role_id': 1563215063635075082},
     'baseball': {
+        'name': 'Kij Baseballowy',
+        'price': 400,
+        'role_id': 1563215064884969573,
+    },
+    'kij baseballowy': {
         'name': 'Kij Baseballowy',
         'price': 400,
         'role_id': 1563215064884969573,
@@ -124,7 +140,6 @@ ALLOWED_CASH_ROLES = {
     1562153152491552819,
 }
 
-# Słowniki czasów oczekiwania (cooldowny)
 collect_cooldowns = {}
 work_cooldowns = {}
 hustle_cooldowns = {}
@@ -136,7 +151,7 @@ async def on_ready():
   print(f'✅ Bot {bot.user.name} wystartował pomyślnie!')
 
 
-# --- KOMENDA: !bal / !balance / !konto / !stan ---
+# --- KOMENDA: !bal ---
 @bot.command(aliases=['balance', 'konto', 'stan'])
 async def bal(ctx, member: discord.Member = None):
   target = member or ctx.author
@@ -172,7 +187,58 @@ async def bal(ctx, member: discord.Member = None):
   await ctx.send(embed=embed)
 
 
-# --- KOMENDA: !dep / !deposit ---
+# --- KOMENDA: !top ---
+@bot.command(aliases=['leaderboard', ' richest'])
+async def top(ctx):
+  data = load_data()
+  if not data:
+    await ctx.send('❌ Brak danych w bazie ekonomii!')
+    return
+
+  # Sortowanie użytkowników według łącznego majątku (portfel + bank)
+  user_balances = []
+  for user_id_str, vals in data.items():
+    wallet = vals.get('wallet', vals.get('cash', 0))
+    bank = vals.get('bank', vals.get('bank_balance', 0))
+    total = wallet + bank
+    user_balances.append((int(user_id_str), total, wallet, bank))
+
+  user_balances.sort(key=lambda x: x[1], reverse=True)
+
+  embed = discord.Embed(
+      title='🏆 Top 10 Najbogatszych – HazeRP',
+      color=discord.Color.gold(),
+      timestamp=datetime.now(),
+  )
+
+  description = ''
+  for index, (uid, total, wallet, bank) in enumerate(user_balances[:10], start=1):
+    member = ctx.guild.get_member(uid)
+    name = member.display_name if member else f'Użytkownik {uid}'
+    medal = (
+        '🥇'
+        if index == 1
+        else '🥈'
+        if index == 2
+        else '🥉'
+        if index == 3
+        else f'`#{index}`'
+    )
+    description += (
+        f'{medal} **{name}**\n   💰 Majątek: **{total:,} PLN** (Portfel:'
+        f' `{wallet:,}`, Bank: `{bank:,}`)\n\n'
+    )
+
+  embed.description = (
+      description
+      if description
+      else 'Brak graczy w rankingach.'
+  )
+  embed.set_footer(text='Haze RolePlay • Ranking Bogaczy')
+  await ctx.send(embed=embed)
+
+
+# --- KOMENDA: !dep ---
 @bot.command(aliases=['deposit'])
 async def dep(ctx, amount: str = None):
   if amount is None:
@@ -238,7 +304,7 @@ async def dep(ctx, amount: str = None):
   await ctx.send(embed=embed)
 
 
-# --- KOMENDA: !with / !withdraw ---
+# --- KOMENDA: !with ---
 @bot.command(aliases=['withdraw'])
 async def with_cmd(ctx, amount: str = None):
   if amount is None:
@@ -304,7 +370,7 @@ async def with_cmd(ctx, amount: str = None):
   await ctx.send(embed=embed)
 
 
-# --- KOMENDA: !collect (cooldown 24h) ---
+# --- KOMENDA: !collect ---
 @bot.command()
 async def collect(ctx):
   user_id = ctx.author.id
@@ -369,7 +435,7 @@ async def collect(ctx):
   await ctx.send(embed=embed)
 
 
-# --- KOMENDA: !work (cooldown 5h) ---
+# --- KOMENDA: !work ---
 @bot.command()
 async def work(ctx):
   user_id = ctx.author.id
@@ -412,7 +478,7 @@ async def work(ctx):
   await ctx.send(embed=embed)
 
 
-# --- KOMENDA: !hustle (cooldown 8h) ---
+# --- KOMENDA: !hustle ---
 @bot.command()
 async def hustle(ctx):
   user_id = ctx.author.id
@@ -455,7 +521,7 @@ async def hustle(ctx):
   await ctx.send(embed=embed)
 
 
-# --- KOMENDA: !crime (cooldown 12h) ---
+# --- KOMENDA: !crime ---
 @bot.command()
 async def crime(ctx):
   user_id = ctx.author.id
@@ -481,7 +547,6 @@ async def crime(ctx):
   data = load_data()
   user = get_user_data(data, user_id)
 
-  # 70% szans na sukces, 30% na porażkę
   success = random.choices([True, False], weights=[70, 30])[0]
 
   if success:
@@ -525,7 +590,20 @@ async def sklep(ctx):
       color=discord.Color.gold(),
   )
 
-  for key, item in SHOP_ITEMS.items():
+  # Unikalne wyświetlanie tylko głównych nazw przedmiotów
+  unique_items = [
+      'prawo jazdy b',
+      'prawo jazdy c',
+      'karta wedkarska',
+      'pozwolenie na bron',
+      'colt',
+      'beretta',
+      'lom',
+      'noz',
+      'baseball',
+  ]
+  for key in unique_items:
+    item = SHOP_ITEMS[key]
     embed.add_field(
         name=f"🔹 {item['name']}",
         value=f"Cena: **{item['price']:,} PLN**",
@@ -632,15 +710,28 @@ async def kup(ctx, *, item_name: str = None):
     await ctx.send(embed=embed)
 
 
-# --- KOMENDA: !pay ---
+# --- KOMENDA: !pay (elastyczna kolejność argumentów) ---
 @bot.command()
-async def pay(ctx, amount: int = None, member: discord.Member = None):
-  if amount is None or member is None:
+async def pay(ctx, arg1: str = None, arg2: str = None):
+  # Obsługa obu wariantów: !pay @Gracz 500 oraz !pay 500 @Gracz
+  member = None
+  amount = None
+
+  if ctx.message.mentions:
+    member = ctx.message.mentions[0]
+    # Szukamy, który argument to kwota
+    for arg in [arg1, arg2]:
+      if arg and not arg.startswith('<@'):
+        try:
+          amount = int(arg)
+        except ValueError:
+          pass
+
+  if not member or not amount:
     embed = discord.Embed(
         title='❌ Błąd składni',
         description=(
-            'Użyj formatu: `!pay <ilość> <@oznaczenie_gracza>`\nPrzykład: `!pay'
-            ' 500 @Gracz`'
+            'Użyj formatu: `!pay @Odbiorca <kwota>`\nPrzykład: `!pay @Gracz 500`'
         ),
         color=discord.Color.red(),
     )
@@ -739,7 +830,7 @@ async def cash(ctx, amount: int = None):
 # --- START BOTA ---
 TOKEN = os.getenv('DISCORD_TOKEN')
 if TOKEN:
-  keep_alive()  # Włączenie serwera Flask dla Rendera
+  keep_alive()
   bot.run(TOKEN)
 else:
   print('❌ Brak tokena DISCORD_TOKEN w środowisku!')
