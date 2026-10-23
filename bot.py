@@ -413,60 +413,6 @@ async def sklep(ctx):
   await ctx.send(embed=embed)
 
 
-@bot.command()
-async def kup(ctx, *, item_name: str):
-  item_name = item_name.lower()
-  if item_name not in SHOP_ITEMS:
-    await ctx.send(
-        f'❌ {ctx.author.mention}, taki przedmiot nie istnieje w sklepie!'
-        ' Sprawdź `!sklep`.'
-    )
-    return
-
-  item = SHOP_ITEMS[item_name]
-  price = item['price']
-  role_name = item['role']
-
-  user = get_user_data(ctx.author.id)
-  if user['wallet'] < price:
-    await ctx.send(
-        f'❌ {ctx.author.mention}, masz za mało gotówki w portfelu! Brakuje Ci'
-        f' **{price - user["wallet"]} PLN**.'
-    )
-    return
-
-  user['wallet'] -= price
-  save_data(load_data())
-
-  role = discord.utils.get(ctx.guild.roles, name=role_name)
-  if role:
-    try:
-      await ctx.author.add_roles(role)
-      embed = discord.Embed(
-          title='✅ Udany zakup!',
-          description=(
-              f'{ctx.author.mention}, pomyślnie zakupiłeś **{role_name}** za'
-              f' **{price} PLN**. Rola została Ci nadana!'
-          ),
-          color=discord.Color.green(),
-      )
-      await ctx.send(embed=embed)
-    except discord.Forbidden:
-      await ctx.send(
-          f'⚠️ {ctx.author.mention}, zakupiłeś przedmiot za {price} PLN, ale bot'
-          ' nie ma uprawnień do nadania roli! (Przesuń rolę bota wyżej w'
-          ' ustawieniach serwera).'
-      )
-  else:
-    await ctx.send(
-        f'⚠️ {ctx.author.mention}, pobrano {price} PLN, ale rola `{role_name}` nie'
-        ' istnieje na tym serwerze! Stwórz ją w panelu.'
-    )
-
-from datetime import datetime, timedelta
-import discord
-from discord.ext import commands
-
 # --- KONFIGURACJA WYPŁAT (!collect) ---
 ROLE_PAYOUTS = {
     1562161272831873116: 762,  # Zarzad KWP
