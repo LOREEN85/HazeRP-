@@ -1,45 +1,65 @@
 from datetime import datetime, timedelta
 import json
 import os
+from threading import Thread
 import discord
 from discord.ext import commands
+from flask import Flask
+
+# --- MINI SERWER HTTP DLA RENDERA (WEB SERVICE) ---
+app = Flask('')
+
+
+@app.route('/')
+def home():
+  return 'Bot HazeRP działa poprawnie 24/7!'
+
+
+def run_web():
+  port = int(os.environ.get('PORT', 8080))
+  app.run(host='0.0.0.0', port=port)
+
+
+def keep_alive():
+  t = Thread(target=run_web)
+  t.start()
+
 
 # --- INICJALIZACJA BOTA ---
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
-DATA_FILE = "economy.json"
+bot = commands.Bot(command_prefix='!', intents=intents)
+DATA_FILE = 'economy.json'
 
 
 # --- SYSTEM BAZY DANYCH (JSON) ---
 def load_data():
   if not os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
+    with open(DATA_FILE, 'w', encoding='utf-8') as f:
       json.dump({}, f)
   try:
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
+    with open(DATA_FILE, 'r', encoding='utf-8') as f:
       return json.load(f)
   except Exception:
     return {}
 
 
 def save_data(data):
-  with open(DATA_FILE, "w", encoding="utf-8") as f:
+  with open(DATA_FILE, 'w', encoding='utf-8') as f:
     json.dump(data, f, indent=4, ensure_ascii=False)
 
 
 def get_user_data(data, user_id):
   user_id_str = str(user_id)
   if user_id_str not in data:
-    data[user_id_str] = {"wallet": 0, "bank": 0}
+    data[user_id_str] = {'wallet': 0, 'bank': 0}
 
-  # Synchornizacja starych/nowych kluczy w pliku JSON
-  if "wallet" not in data[user_id_str]:
-    data[user_id_str]["wallet"] = data[user_id_str].get("cash", 0)
-  if "bank" not in data[user_id_str]:
-    data[user_id_str]["bank"] = data[user_id_str].get("bank_balance", 0)
+  if 'wallet' not in data[user_id_str]:
+    data[user_id_str]['wallet'] = data[user_id_str].get('cash', 0)
+  if 'bank' not in data[user_id_str]:
+    data[user_id_str]['bank'] = data[user_id_str].get('bank_balance', 0)
 
   return data[user_id_str]
 
@@ -63,34 +83,34 @@ ROLE_PAYOUTS = {
 collect_cooldowns = {}
 
 SHOP_ITEMS = {
-    "prawo jazdy b": {
-        "name": "Prawo Jazdy B",
-        "price": 500,
-        "role_id": 1563214789512138864,
+    'prawo jazdy b': {
+        'name': 'Prawo Jazdy B',
+        'price': 500,
+        'role_id': 1563214789512138864,
     },
-    "prawo jazdy c": {
-        "name": "Prawo Jazdy C",
+    'prawo jazdy c': {
+        'name': 'Prawo Jazdy C',
         "price": 1000,
-        "role_id": 1563215060334280837,
+        'role_id': 1563215060334280837,
     },
-    "karta wedkarska": {
-        "name": "Karta Wędkarska",
-        "price": 200,
-        "role_id": 1563215061227667487,
+    'karta wedkarska': {
+        'name': 'Karta Wędkarska',
+        'price': 200,
+        'role_id': 1563215061227667487,
     },
-    "pozwolenie na bron": {
-        "name": "Pozwolenie na Broń",
-        "price": 2500,
-        "role_id": 1563215061697175622,
+    'pozwolenie na bron': {
+        'name': 'Pozwolenie na Broń',
+        'price': 2500,
+        'role_id': 1563215061697175622,
     },
-    "colt": {"name": "Colt", "price": 1500, "role_id": 1563215062544421034},
-    "beretta": {"name": "Beretta", "price": 1800, "role_id": 1563215063056261140},
-    "lom": {"name": "Łom", "price": 300, "role_id": 1563215064482455683},
-    "noz": {"name": "Nóż", "price": 150, "role_id": 1563215063635075082},
-    "baseball": {
-        "name": "Kij Baseballowy",
-        "price": 250,
-        "role_id": 1563215064884969573,
+    'colt': {'name': 'Colt', 'price': 1500, 'role_id': 1563215062544421034},
+    'beretta': {'name': 'Beretta', 'price': 1800, 'role_id': 1563215063056261140},
+    'lom': {'name': 'Łom', 'price': 300, 'role_id': 1563215064482455683},
+    'noz': {'name': 'Nóż', 'price': 150, 'role_id': 1563215063635075082},
+    'baseball': {
+        'name': 'Kij Baseballowy',
+        'price': 250,
+        'role_id': 1563215064884969573,
     },
 }
 
@@ -103,22 +123,22 @@ ALLOWED_CASH_ROLES = {
 
 @bot.event
 async def on_ready():
-  print(f"✅ Bot {bot.user.name} jest włączony i gotowy!")
+  print(f'✅ Bot {bot.user.name} jest włączony i gotowy!')
 
 
 # --- KOMENDA: !bal ---
-@bot.command(aliases=["balance", "konto", "stan"])
+@bot.command(aliases=['balance', 'konto', 'stan'])
 async def bal(ctx, member: discord.Member = None):
   target = member or ctx.author
   data = load_data()
   user = get_user_data(data, target.id)
 
-  wallet_val = user["wallet"]
-  bank_val = user["bank"]
+  wallet_val = user['wallet']
+  bank_val = user['bank']
   total_val = wallet_val + bank_val
 
   embed = discord.Embed(
-      title=f"💳 Stan konta: {target.display_name}",
+      title=f'💳 Stan konta: {target.display_name}',
       color=discord.Color.gold(),
       timestamp=datetime.now(),
   )
@@ -126,18 +146,17 @@ async def bal(ctx, member: discord.Member = None):
     embed.set_thumbnail(url=target.avatar.url)
 
   embed.add_field(
-      name="💵 Portfel (Gotówka)", value=f"```\n{wallet_val:,} PLN\n```", inline=True
+      name='💵 Portfel (Gotówka)', value=f'```\n{wallet_val:,} PLN\n```', inline=True
   )
   embed.add_field(
-      name="🏦 Bank (Konto)", value=f"```\n{bank_val:,} PLN\n```", inline=True
+      name='🏦 Bank (Konto)', value=f'```\n{bank_val:,} PLN\n```', inline=True
   )
   embed.add_field(
-      name="📊 Łączny majątek", value=f"**{total_val:,} PLN**", inline=False
+      name='📊 Łączny majątek', value=f'**{total_val:,} PLN**', inline=False
   )
   embed.set_footer(
-      text="Haze RolePlay • System Ekonomii", icon_url=ctx.guild.icon.url
-      if ctx.guild.icon
-      else None
+      text='Haze RolePlay • System Ekonomii',
+      icon_url=ctx.guild.icon.url if ctx.guild.icon else None,
   )
 
   await ctx.send(embed=embed)
@@ -157,10 +176,10 @@ async def collect(ctx):
       minutes, _ = divmod(remainder, 60)
 
       embed = discord.Embed(
-          title="⏳ Czas oczekiwania",
+          title='⏳ Czas oczekiwania',
           description=(
-              f"Wypłatę możesz odebrać ponownie za **{hours} godz. i"
-              f" {minutes} min.**!"
+              f'Wypłatę możesz odebrać ponownie za **{hours} godz. i'
+              f' {minutes} min.**!'
           ),
           color=discord.Color.red(),
       )
@@ -174,13 +193,13 @@ async def collect(ctx):
     if role.id in ROLE_PAYOUTS:
       amount = ROLE_PAYOUTS[role.id]
       total_payout += amount
-      matched_roles.append(f"• **{role.name}**: +{amount} PLN")
+      matched_roles.append(f'• **{role.name}**: +{amount} PLN')
 
   if total_payout == 0:
     embed = discord.Embed(
-        title="❌ Brak uprawnień",
+        title='❌ Brak uprawnień',
         description=(
-            "Nie posiadasz żadnej roli uprawniającej do pobrania wypłaty!"
+            'Nie posiadasz żadnej roli uprawniającej do pobrania wypłaty!'
         ),
         color=discord.Color.red(),
     )
@@ -189,22 +208,22 @@ async def collect(ctx):
 
   data = load_data()
   user_data = get_user_data(data, user_id)
-  user_data["wallet"] += total_payout
+  user_data['wallet'] += total_payout
   save_data(data)
 
   collect_cooldowns[user_id] = now
-  roles_str = "\n".join(matched_roles)
+  roles_str = '\n'.join(matched_roles)
 
   embed = discord.Embed(
-      title="💰 Dzienna Wypłata",
+      title='💰 Dzienna Wypłata',
       description=(
-          f"Pomyślnie odebrano dzienną wypłatę w wysokości **{total_payout}"
-          " PLN**!\n\n📜 **Otrzymane wynagrodzenie:**\n"
+          f'Pomyślnie odebrano dzienną wypłatę w wysokości **{total_payout}'
+          ' PLN**!\n\n📜 **Otrzymane wynagrodzenie:**\n'
           + roles_str
       ),
       color=discord.Color.green(),
   )
-  embed.set_footer(text="Pieniądze zostały przelane bezpośrednio do portfela.")
+  embed.set_footer(text='Pieniądze zostały przelane bezpośrednio do portfela.')
   await ctx.send(embed=embed)
 
 
@@ -213,8 +232,10 @@ async def collect(ctx):
 async def kup(ctx, *, item_name: str = None):
   if not item_name:
     embed = discord.Embed(
-        title="❌ Błąd składni",
-        description="Podaj nazwę przedmiotu, który chcesz kupić!\nPrzykład: `!kup Colt`",
+        title='❌ Błąd składni',
+        description=(
+            'Podaj nazwę przedmiotu, który chcesz kupić!\nPrzykład: `!kup Colt`'
+        ),
         color=discord.Color.red(),
     )
     await ctx.send(embed=embed)
@@ -224,10 +245,10 @@ async def kup(ctx, *, item_name: str = None):
 
   if item_key not in SHOP_ITEMS:
     embed = discord.Embed(
-        title="❌ Nie znaleziono przedmiotu",
+        title='❌ Nie znaleziono przedmiotu',
         description=(
-            "Taki przedmiot nie istnieje w sklepie! Wpisz `!sklep`, aby"
-            " zobaczyć ofertę."
+            'Taki przedmiot nie istnieje w sklepie! Wpisz `!sklep`, aby'
+            ' zobaczyć ofertę.'
         ),
         color=discord.Color.red(),
     )
@@ -235,18 +256,18 @@ async def kup(ctx, *, item_name: str = None):
     return
 
   item = SHOP_ITEMS[item_key]
-  price = item["price"]
-  role_id = item["role_id"]
+  price = item['price']
+  role_id = item['role_id']
 
   data = load_data()
   user = get_user_data(data, ctx.author.id)
 
-  if user["wallet"] < price:
+  if user['wallet'] < price:
     embed = discord.Embed(
-        title="💸 Brak funduszy",
+        title='💸 Brak funduszy',
         description=(
-            f"Masz za mało gotówki w portfelu!\nBrakująca kwota:"
-            f" **{price - user['wallet']} PLN**."
+            f'Masz za mało gotówki w portfelu!\nBrakująca kwota:'
+            f' **{price - user["wallet"]} PLN**.'
         ),
         color=discord.Color.red(),
     )
@@ -256,45 +277,45 @@ async def kup(ctx, *, item_name: str = None):
   role = ctx.guild.get_role(role_id)
   if role and role in ctx.author.roles:
     embed = discord.Embed(
-        title="⚠️ Przedmiot posiadany",
+        title='⚠️ Przedmiot posiadany',
         description=f"Posiadasz już przedmiot/licencję: **{item['name']}**!",
         color=discord.Color.orange(),
     )
     await ctx.send(embed=embed)
     return
 
-  user["wallet"] -= price
+  user['wallet'] -= price
   save_data(data)
 
   if role:
     try:
       await ctx.author.add_roles(role)
       embed = discord.Embed(
-          title="🛍️ Zakup udany!",
+          title='🛍️ Zakup udany!',
           description=(
               f"Zakupiono **{item['name']}** za **{price} PLN**!\nOtrzymano"
-              f" rolę: {role.mention}"
+              f' rolę: {role.mention}'
           ),
           color=discord.Color.green(),
       )
       await ctx.send(embed=embed)
     except discord.Forbidden:
       embed = discord.Embed(
-          title="⚠️ Problem z uprawnieniami",
+          title='⚠️ Problem z uprawnieniami',
           description=(
-              "Pieniądze zostały pobrane, ale bot nie ma uprawnień do nadania"
-              " roli! Upewnij się, że rola bota jest najwyżej w ustawieniach"
-              " serwera."
+              'Pieniądze zostały pobrane, ale bot nie ma uprawnień do nadania'
+              ' roli! Upewnij się, że rola bota jest najwyżej w ustawieniach'
+              ' serwera.'
           ),
           color=discord.Color.orange(),
       )
       await ctx.send(embed=embed)
   else:
     embed = discord.Embed(
-        title="⚠️ Błąd konfiguracyjny",
+        title='⚠️ Błąd konfiguracyjny',
         description=(
-            "Pieniądze zostały pobrane, ale nie znaleziono odpowiadającej roli"
-            " na serwerze."
+            'Pieniądze zostały pobrane, ale nie znaleziono odpowiadającej roli'
+            ' na serwerze.'
         ),
         color=discord.Color.orange(),
     )
@@ -306,10 +327,10 @@ async def kup(ctx, *, item_name: str = None):
 async def pay(ctx, amount: int = None, member: discord.Member = None):
   if amount is None or member is None:
     embed = discord.Embed(
-        title="❌ Błąd składni",
+        title='❌ Błąd składni',
         description=(
-            "Użyj formatu: `!pay <ilość> <@oznaczenie_gracza>`\nPrzykład: `!pay"
-            " 500 @Gracz`"
+            'Użyj formatu: `!pay <ilość> <@oznaczenie_gracza>`\nPrzykład: `!pay'
+            ' 500 @Gracz`'
         ),
         color=discord.Color.red(),
     )
@@ -318,8 +339,8 @@ async def pay(ctx, amount: int = None, member: discord.Member = None):
 
   if amount <= 0:
     embed = discord.Embed(
-        title="❌ Błąd kwoty",
-        description="Kwota przelewu musi być większa niż 0 PLN!",
+        title='❌ Błąd kwoty',
+        description='Kwota przelewu musi być większa niż 0 PLN!',
         color=discord.Color.red(),
     )
     await ctx.send(embed=embed)
@@ -327,8 +348,8 @@ async def pay(ctx, amount: int = None, member: discord.Member = None):
 
   if member.id == ctx.author.id:
     embed = discord.Embed(
-        title="❌ Błąd odbiorcy",
-        description="Nie możesz przelać pieniędzy samemu sobie!",
+        title='❌ Błąd odbiorcy',
+        description='Nie możesz przelać pieniędzy samemu sobie!',
         color=discord.Color.red(),
     )
     await ctx.send(embed=embed)
@@ -336,8 +357,8 @@ async def pay(ctx, amount: int = None, member: discord.Member = None):
 
   if member.bot:
     embed = discord.Embed(
-        title="❌ Błąd odbiorcy",
-        description="Nie możesz przelać pieniędzy botowi!",
+        title='❌ Błąd odbiorcy',
+        description='Nie możesz przelać pieniędzy botowi!',
         color=discord.Color.red(),
     )
     await ctx.send(embed=embed)
@@ -346,12 +367,12 @@ async def pay(ctx, amount: int = None, member: discord.Member = None):
   data = load_data()
   sender = get_user_data(data, ctx.author.id)
 
-  if sender["wallet"] < amount:
+  if sender['wallet'] < amount:
     embed = discord.Embed(
-        title="💸 Brak funduszy",
+        title='💸 Brak funduszy',
         description=(
-            f"Nie masz wystarczająco pieniędzy w portfelu!\nPosiadasz tylko"
-            f" **{sender['wallet']} PLN**."
+            f'Nie masz wystarczająco pieniędzy w portfelu!\nPosiadasz tylko'
+            f' **{sender["wallet"]} PLN**.'
         ),
         color=discord.Color.red(),
     )
@@ -360,15 +381,15 @@ async def pay(ctx, amount: int = None, member: discord.Member = None):
 
   receiver = get_user_data(data, member.id)
 
-  sender["wallet"] -= amount
-  receiver["wallet"] += amount
+  sender['wallet'] -= amount
+  receiver['wallet'] += amount
   save_data(data)
 
   embed = discord.Embed(
-      title="💸 Przelew prywatny",
+      title='💸 Przelew prywatny',
       description=(
-          f"{ctx.author.mention} przekazał(a) **{amount} PLN** dla"
-          f" {member.mention}!"
+          f'{ctx.author.mention} przekazał(a) **{amount} PLN** dla'
+          f' {member.mention}!'
       ),
       color=discord.Color.blue(),
   )
@@ -381,8 +402,8 @@ async def cash(ctx, amount: int = None):
   user_role_ids = {role.id for role in ctx.author.roles}
   if not user_role_ids.intersection(ALLOWED_CASH_ROLES):
     embed = discord.Embed(
-        title="❌ Brak uprawnień",
-        description="Nie posiadasz uprawnień do użycia tej komendy!",
+        title='❌ Brak uprawnień',
+        description='Nie posiadasz uprawnień do użycia tej komendy!',
         color=discord.Color.red(),
     )
     await ctx.send(embed=embed)
@@ -390,8 +411,8 @@ async def cash(ctx, amount: int = None):
 
   if amount is None or amount <= 0:
     embed = discord.Embed(
-        title="❌ Błąd kwoty",
-        description="Podaj poprawną kwotę do dodania, np. `!cash 10000`!",
+        title='❌ Błąd kwoty',
+        description='Podaj poprawną kwotę do dodania, np. `!cash 10000`!',
         color=discord.Color.red(),
     )
     await ctx.send(embed=embed)
@@ -400,14 +421,14 @@ async def cash(ctx, amount: int = None):
   data = load_data()
   user = get_user_data(data, ctx.author.id)
 
-  user["wallet"] += amount
+  user['wallet'] += amount
   save_data(data)
 
   embed = discord.Embed(
-      title="👑 Doładowanie Administracyjne",
+      title='👑 Doładowanie Administracyjne',
       description=(
-          f"Dodano **{amount:,} PLN** do Twojego portfela!\nAktualny stan"
-          f" portfela: **{user['wallet']:,} PLN**"
+          f'Dodano **{amount:,} PLN** do Twojego portfela!\nAktualny stan'
+          f' portfela: **{user["wallet"]:,} PLN**'
       ),
       color=discord.Color.purple(),
   )
@@ -415,12 +436,12 @@ async def cash(ctx, amount: int = None):
 
 
 # --- KOMENDA: !dep ---
-@bot.command(aliases=["deposit"])
+@bot.command(aliases=['deposit'])
 async def dep(ctx, amount: str = None):
   if amount is None:
     embed = discord.Embed(
-        title="❌ Błąd składni",
-        description="Podaj kwotę do wpłaty, np. `!dep 50` lub `!dep all`!",
+        title='❌ Błąd składni',
+        description='Podaj kwotę do wpłaty, np. `!dep 50` lub `!dep all`!',
         color=discord.Color.red(),
     )
     await ctx.send(embed=embed)
@@ -429,15 +450,15 @@ async def dep(ctx, amount: str = None):
   data = load_data()
   user = get_user_data(data, ctx.author.id)
 
-  if amount.lower() == "all":
-    dep_amount = user["wallet"]
+  if amount.lower() == 'all':
+    dep_amount = user['wallet']
   else:
     try:
       dep_amount = int(amount)
     except ValueError:
       embed = discord.Embed(
-          title="❌ Błąd kwoty",
-          description="Podaj poprawną liczbę lub słowo `all`!",
+          title='❌ Błąd kwoty',
+          description='Podaj poprawną liczbę lub słowo `all`!',
           color=discord.Color.red(),
       )
       await ctx.send(embed=embed)
@@ -445,35 +466,35 @@ async def dep(ctx, amount: str = None):
 
   if dep_amount <= 0:
     embed = discord.Embed(
-        title="❌ Błąd kwoty",
-        description="Kwota wpłaty musi być większa niż 0 PLN!",
+        title='❌ Błąd kwoty',
+        description='Kwota wpłaty musi być większa niż 0 PLN!',
         color=discord.Color.red(),
     )
     await ctx.send(embed=embed)
     return
 
-  if user["wallet"] < dep_amount:
+  if user['wallet'] < dep_amount:
     embed = discord.Embed(
-        title="💸 Brak funduszy",
+        title='💸 Brak funduszy',
         description=(
-            f"Nie masz tylu pieniędzy w portfelu!\nPosiadasz tylko"
-            f" **{user['wallet']} PLN**."
+            f'Nie masz tylu pieniędzy w portfelu!\nPosiadasz tylko'
+            f' **{user["wallet"]} PLN**.'
         ),
         color=discord.Color.red(),
     )
     await ctx.send(embed=embed)
     return
 
-  user["wallet"] -= dep_amount
-  user["bank"] += dep_amount
+  user['wallet'] -= dep_amount
+  user['bank'] += dep_amount
   save_data(data)
 
   embed = discord.Embed(
-      title="🏦 Wpłata do Banku",
+      title='🏦 Wpłata do Banku',
       description=(
-          f"Wpłacono **{dep_amount:,} PLN** do bezpiecznego banku.\n\n💳"
-          f" Portfel: **{user['wallet']:,} PLN**\n🏦 Bank: **{user['bank']:,}"
-          " PLN**"
+          f'Wpłacono **{dep_amount:,} PLN** do bezpiecznego banku.\n\n💳'
+          f' Portfel: **{user["wallet"]:,} PLN**\n🏦 Bank: **{user["bank"]:,}'
+          ' PLN**'
       ),
       color=discord.Color.green(),
   )
@@ -481,12 +502,12 @@ async def dep(ctx, amount: str = None):
 
 
 # --- KOMENDA: !with ---
-@bot.command(aliases=["withdraw"])
+@bot.command(aliases=['withdraw'])
 async def with_cmd(ctx, amount: str = None):
   if amount is None:
     embed = discord.Embed(
-        title="❌ Błąd składni",
-        description="Podaj kwotę do wypłaty, np. `!with 50` lub `!with all`!",
+        title='❌ Błąd składni',
+        description='Podaj kwotę do wypłaty, np. `!with 50` lub `!with all`!',
         color=discord.Color.red(),
     )
     await ctx.send(embed=embed)
@@ -495,15 +516,15 @@ async def with_cmd(ctx, amount: str = None):
   data = load_data()
   user = get_user_data(data, ctx.author.id)
 
-  if amount.lower() == "all":
-    with_amount = user["bank"]
+  if amount.lower() == 'all':
+    with_amount = user['bank']
   else:
     try:
       with_amount = int(amount)
     except ValueError:
       embed = discord.Embed(
-          title="❌ Błąd kwoty",
-          description="Podaj poprawną liczbę lub słowo `all`!",
+          title='❌ Błąd kwoty',
+          description='Podaj poprawną liczbę lub słowo `all`!',
           color=discord.Color.red(),
       )
       await ctx.send(embed=embed)
@@ -511,44 +532,47 @@ async def with_cmd(ctx, amount: str = None):
 
   if with_amount <= 0:
     embed = discord.Embed(
-        title="❌ Błąd kwoty",
-        description="Kwota wypłaty musi być większa niż 0 PLN!",
+        title='❌ Błąd kwoty',
+        description='Kwota wypłaty musi być większa niż 0 PLN!',
         color=discord.Color.red(),
     )
     await ctx.send(embed=embed)
     return
 
-  if user["bank"] < with_amount:
+  if user['bank'] < with_amount:
     embed = discord.Embed(
-        title="💸 Brak funduszy w banku",
+        title='💸 Brak funduszy w banku',
         description=(
-            f"Nie masz tylu pieniędzy w banku!\nPosiadasz tam tylko"
-            f" **{user['bank']} PLN**."
+            f'Nie masz tylu pieniędzy w banku!\nPosiadasz tam tylko'
+            f' **{user["bank"]} PLN**.'
         ),
         color=discord.Color.red(),
     )
     await ctx.send(embed=embed)
     return
 
-  user["bank"] -= with_amount
-  user["wallet"] += with_amount
+  user['bank'] -= with_amount
+  user['wallet'] += with_amount
   save_data(data)
 
   embed = discord.Embed(
-      title="🏦 Wypłata z Banku",
+      title='🏦 Wypłata z Banku',
       description=(
-          f"Wypłacono **{with_amount:,} PLN** z konta bankowego.\n\n💳"
-          f" Portfel: **{user['wallet']:,} PLN**\n🏦 Bank: **{user['bank']:,}"
-          " PLN**"
+          f'Wypłacono **{with_amount:,} PLN** z konta bankowego.\n\n💳'
+          f' Portfel: **{user["wallet"]:,} PLN**\n🏦 Bank: **{user["bank"]:,}'
+          ' PLN**'
       ),
       color=discord.Color.blue(),
   )
   await ctx.send(embed=embed)
 
 
+# --- WSKAZÓWKA: W pliku requirements.txt dodaj linijkę: flask ---
+
 # --- START BOTA ---
-TOKEN = os.getenv("DISCORD_TOKEN")
+TOKEN = os.getenv('DISCORD_TOKEN')
 if TOKEN:
+  keep_alive()  # Włączenie serwera www dla Rendera
   bot.run(TOKEN)
 else:
-  print("❌ Brak tokena DISCORD_TOKEN w środowisku!")
+  print('❌ Brak tokena DISCORD_TOKEN w środowisku!')
