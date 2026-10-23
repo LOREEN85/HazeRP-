@@ -176,90 +176,112 @@ async def bal(ctx, member: discord.Member = None):
   embed.add_field(name='📊 Łącznie majątek', value=f'**{total} PLN**', inline=False)
   await ctx.send(embed=embed)
 
-
-# --- 5. !withdraw / !with ---
-@bot.command(aliases=['with'])
-async def withdraw(ctx, amount: str):
-  user = get_user_data(ctx.author.id)
-
-  if amount.lower() == 'all':
-    amt = user['bank']
-  else:
-    try:
-      amt = int(amount)
-    except ValueError:
-      await ctx.send(
-          f'❌ {ctx.author.mention}, podaj poprawną kwotę do wypłaty!'
-      )
-      return
-
-  if amt <= 0:
-    await ctx.send(f'❌ {ctx.author.mention}, kwota musi być większa od 0!')
-    return
-
-  if user['bank'] < amt:
+# --- KOMENDA: !dep <kwota> / !dep all (Wpłata z portfela do banku) ---
+@bot.command(aliases=['deposit'])
+async def dep(ctx, amount: str = None):
+  if amount is None:
     await ctx.send(
-        f'❌ {ctx.author.mention}, nie masz tylu pieniędzy w banku! (Masz:'
-        f' {user["bank"]} PLN)'
+        f"❌ {ctx.author.mention}, podaj kwotę do wpłaty, np. `!dep 50` lub"
+        " `!dep all`!"
     )
     return
 
-  user['bank'] -= amt
-  user['wallet'] += amt
-  save_data(load_data())
+  data = load_data()
+  user = get_user_data(ctx.author.id)
+
+  if amount.lower() == 'all':
+    dep_amount = user['wallet']
+  else:
+    try:
+      dep_amount = int(amount)
+    except ValueError:
+      await ctx.send(
+          f"❌ {ctx.author.mention}, podaj poprawną liczbę lub `all`!"
+      )
+      return
+
+  if dep_amount <= 0:
+    await ctx.send(
+        f"❌ {ctx.author.mention}, kwota wpłaty musi być większa niż 0 PLN!"
+    )
+    return
+
+  if user['wallet'] < dep_amount:
+    await ctx.send(
+        f"❌ {ctx.author.mention}, nie masz tylu pieniędzy w portfelu!"
+        f" Posiadasz tylko **{user['wallet']} PLN**."
+    )
+    return
+
+  # Aktualizacja stanu konta i zapis
+  user['wallet'] -= dep_amount
+  user['bank'] += dep_amount
+  save_data(data)
 
   embed = discord.Embed(
-      title='💸 Wypłata z banku',
+      title="🏦 Wpłata do banku",
       description=(
-          f'{ctx.author.mention} wypłaciłeś **{amt} PLN** z banku do portfela.'
+          f"{ctx.author.mention} wpłaciłeś **{dep_amount} PLN** do bezpiecznego"
+          f" banku.\n💳 Portfel: **{user['wallet']} PLN** | 🏦 Bank:"
+          f" **{user['bank']} PLN**"
       ),
       color=discord.Color.green(),
   )
   await ctx.send(embed=embed)
 
 
-# --- 6. !deposit / !dep ---
-@bot.command(aliases=['dep'])
-async def deposit(ctx, amount: str):
-  user = get_user_data(ctx.author.id)
-
-  if amount.lower() == 'all':
-    amt = user['wallet']
-  else:
-    try:
-      amt = int(amount)
-    except ValueError:
-      await ctx.send(
-          f'❌ {ctx.author.mention}, podaj poprawną kwotę do wpłaty!'
-      )
-      return
-
-  if amt <= 0:
-    await ctx.send(f'❌ {ctx.author.mention}, kwota musi być większa od 0!')
-    return
-
-  if user['wallet'] < amt:
+# --- KOMENDA: !with <kwota> / !with all (Wypłata z banku do portfela) ---
+@bot.command(aliases=['withdraw'])
+async def with_cmd(ctx, amount: str = None):
+  if amount is None:
     await ctx.send(
-        f'❌ {ctx.author.mention}, nie masz tylu pieniędzy w portfelu! (Masz:'
-        f' {user["wallet"]} PLN)'
+        f"❌ {ctx.author.mention}, podaj kwotę do wypłaty, np. `!with 50` lub"
+        " `!with all`!"
     )
     return
 
-  user['wallet'] -= amt
-  user['bank'] += amt
-  save_data(load_data())
+  data = load_data()
+  user = get_user_data(ctx.author.id)
+
+  if amount.lower() == 'all':
+    with_amount = user['bank']
+  else:
+    try:
+      with_amount = int(amount)
+    except ValueError:
+      await ctx.send(
+          f"❌ {ctx.author.mention}, podaj poprawną liczbę lub `all`!"
+      )
+      return
+
+  if with_amount <= 0:
+    await ctx.send(
+        f"❌ {ctx.author.mention}, kwota wypłaty musi być większa niż 0 PLN!"
+    )
+    return
+
+  if user['bank'] < with_amount:
+    await ctx.send(
+        f"❌ {ctx.author.mention}, nie masz tylu pieniędzy w banku! Posiadasz"
+        f" tam tylko **{user['bank']} PLN**."
+    )
+    return
+
+  # Aktualizacja stanu konta i zapis
+  user['bank'] -= with_amount
+  user['wallet'] += with_amount
+  save_data(data)
 
   embed = discord.Embed(
-      title='🏦 Wpłata do banku',
+      title="🏦 Wypłata z banku",
       description=(
-          f'{ctx.author.mention} wpłaciłeś **{amt} PLN** do bezpiecznego'
-          ' banku.'
+          f"{ctx.author.mention} wypłaciłeś **{with_amount} PLN** ze swojego"
+          f" konta bankowego.\n💳 Portfel: **{user['wallet']} PLN** | 🏦 Bank:"
+          f" **{user['bank']} PLN**"
       ),
-      color=discord.Color.green(),
+      color=discord.Color.blue(),
   )
   await ctx.send(embed=embed)
-
-
 # --- 7. !crime (50% szans na zysk/stratę 100-200 PLN, co 24h) ---
 @bot.command()
 async def crime(ctx):
