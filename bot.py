@@ -489,6 +489,157 @@ async def kup(ctx, *, item_name: str):
         ' istnieje na tym serwerze! Stwórz ją w panelu.'
     )
 
+from datetime import datetime, timedelta
+import discord
+from discord.ext import commands
+
+# --- KONFIGURACJA WYPŁAT (!collect) ---
+ROLE_PAYOUTS = {
+    1562161272831873116: 762,  # Zarzad KWP
+    1562161335419015308: 843,  # Zarzad PRM
+    1562161420085362888: 756,  # Zarzad PSP
+    1562161451307634698: 751,  # Zarzad OSP
+    1562161482119118948: 746,  # zarzad GDDKiA
+    1562160796916646000: 435,  # KWP
+    1562160850331107379: 534,  # PRM
+    1562160899823767603: 432,  # PSP
+    1562160921311322184: 428,  # OSP
+    1562160960230395905: 426,  # GDDKiA
+    1562161025334378596: 324,  # FIRMA
+}
+
+collect_cooldowns = {}
+
+
+# --- KONFIGURACJA SKLEPU (!kup) ---
+SHOP_ITEMS = {
+    "prawo jazdy b": {
+        "name": "Prawo Jazdy B",
+        "price": 500,
+        "role_id": 1563214789512138864,
+    },
+    "prawo jazdy c": {
+        "name": "Prawo Jazdy C",
+        "price": 1000,
+        "role_id": 1563215060334280837,
+    },
+    "karta wedkarska": {
+        "name": "Karta Wędkarska",
+        "price": 200,
+        "role_id": 1563215061227667487,
+    },
+    "pozwolenie na bron": {
+        "name": "Pozwolenie na Broń",
+        "price": 2500,
+        "role_id": 1563215061697175622,
+    },
+    "colt": {"name": "Colt", "price": 1500, "role_id": 1563215062544421034},
+    "beretta": {"name": "Beretta", "price": 1800, "role_id": 1563215063056261140},
+    "lom": {"name": "Łom", "price": 300, "role_id": 1563215064482455683},
+    "noz": {"name": "Nóż", "price": 150, "role_id": 1563215063635075082},
+    "baseball": {
+        "name": "Kij Baseballowy",
+        "price": 250,
+        "role_id": 1563215064884969573,
+    },
+}
+
+
+# --- KOMENDA: !collect ---
+
+@bot.command()
+async def collect(ctx):
+  user_id = ctx.author.id
+  now = datetime.now()
+
+  # Sprawdzanie cooldownu 24h
+  if user_id in collect_cooldowns:
+    next_collect_time = collect_cooldowns[user_id] + timedelta(hours=24)
+    if now < next_collect_time:
+      remaining = next_collect_time - now
+      hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+      minutes, _ = divmod(remainder, 60)
+      await ctx.send(
+          f"❌ {ctx.author.mention}, swoją wypłatę możesz odebrać ponownie za"
+          f" **{hours} godz. i {minutes} min.**!"
+      )
+      return
+
+  # Liczenie łącznej kwoty na podstawie ról użytkownika
+  total_payout = 0
+  matched_roles = []
+
+  for role in ctx.author.roles:
+    if role.id in ROLE_PAYOUTS:
+      amount = ROLE_PAYOUTS[role.id]
+      total_payout += amount
+      matched_roles.append(f"{role.name} (+{amount} PLN)")
+
+  if total_payout == 0:
+    await ctx.send(
+        f"❌ {ctx.author.mention}, nie posiadasz żadnej roli uprawniającej do"
+        " pobrania wypłaty!"
+    )
+    return
+
+  # Ustawienie cooldownu na 24h od teraz
+  collect_cooldowns[user_id] = now
+
+  roles_str = ", ".join(matched_roles)
+  await ctx.send(
+      f"✅ {ctx.author.mention}, pomyślnie odebrałeś dzienną wypłatę w wysokości"
+      f" **{total_payout} PLN**!\n📜 **Uwzględnione role:** {roles_str}"
+  )
+
+
+# --- KOMENDA: !kup ---
+@bot.command()
+async def kup(ctx, *, item_key: str = None):
+  if not item_key:
+    await ctx.send(
+        "❌ Podaj nazwę przedmiotu, który chcesz kupić, np. `!kup Colt`!"
+    )
+    return
+
+  item_key_clean = item_key.lower().strip()
+
+  if item_key_clean not in SHOP_ITEMS:
+    await ctx.send(
+        "❌ Nie znaleziono takiego przedmiotu w sklepie! Wpisz `!sklep`, aby"
+        " zobaczyć ofertę."
+    )
+    return
+
+  item = SHOP_ITEMS[item_key_clean]
+  price = item["price"]
+  role_id = item["role_id"]
+  user = ctx.author
+
+  # Sprawdzenie czy użytkownik już ma tę rolę
+  role = ctx.guild.get_role(role_id)
+  if role and role in user.roles:
+    await ctx.send(f"❌ {user.mention}, posiadasz już **{item['name']}**!")
+    return
+
+  # Nadanie roli na serwerze
+  if role:
+    try:
+      await user.add_roles(role)
+      await ctx.send(
+          f"🛍️ {user.mention}, pomyślnie zakupiono **{item['name']}** za"
+          f" **{price} PLN**! Otrzymałeś odpowiednią rolę."
+      )
+    except discord.Forbidden:
+      await ctx.send(
+          "❌ Bot nie ma wystarczających uprawnień, aby nadać tę rolę! Upewnij"
+          " się, że rola bota jest wyżej w ustawieniach serwera."
+      )
+  else:
+    await ctx.send(
+        "❌ Nie znaleziono roli na serwerze. Skontaktuj się z administracją."
+    )
+
+
 
 # Uruchomienie serwera WWW i bota
 keep_alive()
