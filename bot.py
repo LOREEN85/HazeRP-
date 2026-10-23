@@ -304,8 +304,8 @@ async def dep(ctx, amount: str = None):
   await ctx.send(embed=embed)
 
 
-# --- KOMENDA: !with ---
-@bot.command(aliases=['withdraw'])
+# --- KOMENDA: !with / !withdraw (Wypłata z banku) ---
+@bot.command(name='with', aliases=['withdraw'])
 async def with_cmd(ctx, amount: str = None):
   if amount is None:
     embed = discord.Embed(
@@ -319,6 +319,7 @@ async def with_cmd(ctx, amount: str = None):
   data = load_data()
   user = get_user_data(data, ctx.author.id)
 
+  # Sprawdzenie słowa 'all'
   if amount.lower() == 'all':
     with_amount = user['bank']
   else:
@@ -354,6 +355,7 @@ async def with_cmd(ctx, amount: str = None):
     await ctx.send(embed=embed)
     return
 
+  # Wykonanie wypłaty i zapis w bazie
   user['bank'] -= with_amount
   user['wallet'] += with_amount
   save_data(data)
@@ -368,8 +370,7 @@ async def with_cmd(ctx, amount: str = None):
       color=discord.Color.blue(),
   )
   await ctx.send(embed=embed)
-
-
+  
 # --- KOMENDA: !collect ---
 @bot.command()
 async def collect(ctx):
