@@ -558,7 +558,55 @@ async def kup(ctx, *, item_key: str = None):
     await ctx.send(
         "❌ Nie znaleziono roli na serwerze. Skontaktuj się z administracją."
     )
+# --- KOMENDA: !pay <ilosc> <@osoba/nick> ---
+@bot.command()
+async def pay(ctx, amount: int = None, member: discord.Member = None):
+  if amount is None or member is None:
+    await ctx.send(
+        f"❌ {ctx.author.mention}, użyj poprawnego formatu: `!pay <ilość>"
+        " <@oznaczenie_gracza>` (np. `!pay 500 @Gracz`)!"
+    )
+    return
 
+  if amount <= 0:
+    await ctx.send(
+        f"❌ {ctx.author.mention}, kwota przelewu musi być większa niż 0 PLN!"
+    )
+    return
+
+  if member.id == ctx.author.id:
+    await ctx.send(
+        f"❌ {ctx.author.mention}, nie możesz przelać pieniędzy samemu sobie!"
+    )
+    return
+
+  if member.bot:
+    await ctx.send(
+        f"❌ {ctx.author.mention}, nie możesz przelać pieniędzy botowi!"
+    )
+    return
+
+  data = load_data()
+  sender = get_user_data(ctx.author.id)
+
+  if sender["wallet"] < amount:
+    await ctx.send(
+        f"❌ {ctx.author.mention}, nie masz wystarczająco pieniędzy w portfelu!"
+        f" Posiadasz tylko **{sender['wallet']} PLN**."
+    )
+    return
+
+  receiver = get_user_data(member.id)
+
+  # Przelew środków między portfelami
+  sender["wallet"] -= amount
+  receiver["wallet"] += amount
+  save_data(data)
+
+  await ctx.send(
+      f"💸 {ctx.author.mention} przekazał(a) **{amount} PLN** dla"
+      f" {member.mention}!"
+  )
 
 
 # Uruchomienie serwera WWW i bota
